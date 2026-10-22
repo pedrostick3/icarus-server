@@ -281,6 +281,14 @@ class Manager:
             kind, name = self.events.get(timeout=5)
         except queue.Empty:
             return
+        if kind == "alert":
+            if name == "prospect" and self.cfg.notify_errors:
+                world = self.cfg.load_prospect or "(LOAD_PROSPECT vazio)"
+                self.notify(f"⚠️ O servidor não conseguiu carregar o mundo **{world}** e ficou no lobby. "
+                            "Confirma o `LOAD_PROSPECT` no `.env` e o ficheiro em "
+                            "`data/Saved/PlayerData/DedicatedServer/Prospects` "
+                            "(o `docker compose logs icarus` lista os prospects disponíveis).")
+            return
         who = name or "Um jogador"
         count = self.tracker.count
         if self.cfg.notify_players:

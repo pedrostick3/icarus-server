@@ -388,6 +388,16 @@ docker compose up -d
 
 > ⚠️ O `git reset --hard` descarta alterações locais a ficheiros do git. O `.env`, o `data/` e o `backups/` não são afetados, porque não estão no git.
 
+### `Failed to load prospect file correctly`: o servidor fica no lobby
+
+O mundo indicado em `LOAD_PROSPECT` não foi encontrado ou não abriu. O log do `icarus` mostra uma linha `AVISO:` com os prospects que existem. Confirma:
+
+1. O ficheiro está em `data/Saved/PlayerData/DedicatedServer/Prospects/` (se o puseste em `./import`, o contentor tem de ser recriado: `docker compose up -d --force-recreate icarus`).
+2. `LOAD_PROSPECT` é o nome do ficheiro **sem** `.json`, com as maiúsculas e minúsculas exatas.
+3. Se o nome está certo e continua a falhar, o `.json` pode estar incompleto (por exemplo, copiado com o jogo aberto): pede ao teu amigo uma cópia nova, com o jogo fechado.
+
+Entretanto, quem entrar no servidor pode escolher o mundo no lobby (`ALLOW_NON_ADMINS_LAUNCH=True`).
+
 ### Bot: `403 Forbidden (error code: 50001): Missing Access`
 
 O Discord não deixa o bot registar os comandos no servidor indicado. Confirma:

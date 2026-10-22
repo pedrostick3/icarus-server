@@ -47,7 +47,7 @@ class SupervisorIntegrationTest(unittest.TestCase):
             BACKUPS_DIR=str(self.dirs["backups"]), STEAMCMD_DIR=str(self.dirs["steamcmd"]),
             WINEPREFIX=str(self.dirs["wine"]), QUERY_PORT=str(self.port), SERVER_NAME="Teste & Cª",
             FAKE_BUILD_FILE=str(self.build_file), FAKE_PLAYERS_FILE=str(self.players),
-            FAKE_STEAM_FAIL_FILE=str(self.steam_fail), SHUTDOWN_TIMEOUT="5", LOG_TO_STDOUT="false", CRASH_LIMIT="2",
+            FAKE_STEAM_FAIL_FILE=str(self.steam_fail), SHUTDOWN_TIMEOUT="5", LOAD_PROSPECT="NaoExiste.json", LOG_TO_STDOUT="false", CRASH_LIMIT="2",
         )
         self.log_fh = open(root / "supervisor.log", "w")
         self.proc = subprocess.Popen(["bash", str(REPO / "server/supervisor.sh")], env=self.env,
@@ -91,6 +91,10 @@ class SupervisorIntegrationTest(unittest.TestCase):
         ini = (self.dirs["data"] / "Saved/Config/WindowsServer/ServerSettings.ini").read_text()
         self.assertIn("SessionName=Teste & Cª", ini)
         self.assertIn("ShutdownIfEmptyFor=-1", ini)
+        self.assertIn("LoadProspect=NaoExiste\n", ini)
+        supervisor_log = (Path(self.tmp.name) / "supervisor.log").read_text()
+        self.assertIn("AVISO: LOAD_PROSPECT=NaoExiste mas não existe", supervisor_log)
+        self.assertIn("prospects disponíveis: Mundo", supervisor_log)
 
         # restart is refused while someone plays, unless forced
         self.players.write_text("Pedro\n")

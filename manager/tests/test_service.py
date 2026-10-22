@@ -154,6 +154,13 @@ class ServiceTest(unittest.TestCase):
         self.assertIn("#privado", text)
         self.assertLess(len(text), 2000)
 
+    def test_prospect_load_failure_alert(self):
+        self.m.cfg.load_prospect = "MundoDoPedro"
+        self.m.tracker._process_line("[2026]LogDedicatedServerEntry: Failed to load prospect file correctly.")
+        self.m._handle_events()
+        self.assertIn("MundoDoPedro", self.sent[-1])
+        self.assertIn("lobby", self.sent[-1])
+
 
 if __name__ == "__main__":
     unittest.main()
