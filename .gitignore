@@ -1,0 +1,8 @@
+.env
+data/
+backups/
+import/*
+!import/.gitkeep
+config/rclone/*
+!config/rclone/.gitkeep
+__pycache__/
