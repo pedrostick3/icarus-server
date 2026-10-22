@@ -5,7 +5,7 @@ services:
     build: ./server
     image: icarus-server:local
     container_name: icarus-server
-    restart: unless-stopped
+    restart: unless-stopped        # volta a arrancar sozinho quando o Docker arranca (ex.: após reboot)
     stop_grace_period: 90s
     ports:
       - "${GAME_PORT:-17777}:${GAME_PORT:-17777}/udp"
@@ -30,47 +30,39 @@ services:
       STEAM_BRANCH: ${STEAM_BRANCH:-}
       IMPORT_OVERWRITE: ${IMPORT_OVERWRITE:-false}
       SHUTDOWN_TIMEOUT: ${SHUTDOWN_TIMEOUT:-60}
+      CRASH_LIMIT: ${CRASH_LIMIT:-5}
       LOG_TO_STDOUT: ${LOG_TO_STDOUT:-true}
       EXTRA_ARGS: ${EXTRA_ARGS:-}
     volumes:
-      - icarus-game:/opt/icarus     # game files (re-downloadable, ~ several GB)
-      - ./data:/data                # saves, config and logs — THIS is what matters
-      - ./import:/import:ro         # drop a prospect .json here to import it
+      - icarus-game:/opt/icarus     # ficheiros do jogo (re-descarregáveis, vários GB)
+      - ./data:/data                # saves, config e logs — ISTO é o que importa
+      - ./import:/import:ro         # larga aqui um prospect .json para o importar
+      - ./backups:/backups:ro       # para restaurar backups
+      - control:/control            # comandos manager -> servidor
     logging:
       driver: local
       options:
         max-size: 20m
         max-file: "3"
 
-  backup:
-    build: ./backup
-    image: icarus-backup:local
-    container_name: icarus-backup
+  manager:
+    build: ./manager
+    image: icarus-manager:local
+    container_name: icarus-manager
     restart: unless-stopped
     depends_on:
       - icarus
+    env_file:
+      - path: .env
+        required: false
     environment:
       TZ: ${TZ:-Europe/Lisbon}
-      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
-      DISCORD_USERNAME: ${DISCORD_USERNAME:-Icarus Backup}
-      DISCORD_MAX_FILE_MB: ${DISCORD_MAX_FILE_MB:-9.5}
-      DISCORD_NOTIFY_PLAYERS: ${DISCORD_NOTIFY_PLAYERS:-true}
-      DISCORD_NOTIFY_ERRORS: ${DISCORD_NOTIFY_ERRORS:-true}
-      BACKUP_INTERVAL_MINUTES: ${BACKUP_INTERVAL_MINUTES:-60}
-      BACKUP_ONLY_IF_CHANGED: ${BACKUP_ONLY_IF_CHANGED:-true}
-      BACKUP_ON_START: ${BACKUP_ON_START:-true}
-      BACKUP_ON_PLAYER_LEAVE: ${BACKUP_ON_PLAYER_LEAVE:-true}
-      BACKUP_LEAVE_DELAY_SECONDS: ${BACKUP_LEAVE_DELAY_SECONDS:-120}
-      BACKUP_MIN_GAP_MINUTES: ${BACKUP_MIN_GAP_MINUTES:-10}
-      BACKUP_FILE_STABLE_SECONDS: ${BACKUP_FILE_STABLE_SECONDS:-15}
-      BACKUP_PATHS: ${BACKUP_PATHS:-Saved/PlayerData/DedicatedServer}
-      LOCAL_BACKUP_KEEP: ${LOCAL_BACKUP_KEEP:-72}
-      PLAYER_JOIN_REGEX: ${PLAYER_JOIN_REGEX:-}
-      PLAYER_LEAVE_REGEX: ${PLAYER_LEAVE_REGEX:-}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      SERVER_HOST: icarus
     volumes:
       - ./data:/data:ro
       - ./backups:/backups
+      - ./config/rclone:/config/rclone   # rclone.conf (opcional; o rclone renova os tokens aqui)
+      - control:/control
     logging:
       driver: local
       options:
@@ -79,3 +71,4 @@ services:
 
 volumes:
   icarus-game:
+  control:
