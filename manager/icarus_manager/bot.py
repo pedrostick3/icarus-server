@@ -19,6 +19,10 @@ log = logging.getLogger(__name__)
 LOCKOUT_SECONDS = 15 * 60
 
 
+# The bot never uses voice: silence the "PyNaCl is not installed" warning
+discord.VoiceClient.warn_nacl = False
+
+
 def start_bot(manager):
     threading.Thread(target=lambda: asyncio.run(_run(manager)), daemon=True, name="discord-bot").start()
 
@@ -170,7 +174,14 @@ async def _run(manager):
 
     @client.event
     async def on_ready():
-        synced = await tree.sync(guild=guild)
+        try:
+            synced = await tree.sync(guild=guild)
+        except discord.Forbidden:
+            log.error("O Discord recusou registar os comandos no servidor %s (Missing Access). Confirma que "
+                      "DISCORD_GUILD_ID é o ID do servidor Discord (não de um canal) e que o bot foi convidado "
+                      "com os scopes 'bot' e 'applications.commands' (ver README, secção do bot).",
+                      cfg.bot_guild_id or "global")
+            return
         log.info("Bot do Discord ligado como %s (%d comandos%s%s)", client.user, len(synced),
                  "" if guild else "; sem DISCORD_GUILD_ID os comandos podem demorar até 1h a aparecer",
                  "" if guard.configured else "; SEM password: /backup /restart /update desativados")

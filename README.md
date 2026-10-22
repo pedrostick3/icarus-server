@@ -373,6 +373,29 @@ Copia a pasta do projeto (com `data/`, `.env`, `config/` e, se quiseres, `backup
 
 ---
 
+## Resolução de problemas
+
+### `icarus-server` em `Restarting (127)` com `'bash\r': No such file or directory`
+
+Os scripts ficaram com fins de linha do Windows (CRLF). A imagem já os corrige ao ser construída, por isso isto quer dizer que **a imagem é antiga**:
+
+```powershell
+git pull                                   # tem de trazer o .gitattributes
+git rm --cached -r . ; git reset --hard    # volta a escrever os ficheiros com os fins de linha certos
+docker compose build --no-cache icarus
+docker compose up -d
+```
+
+> ⚠️ O `git reset --hard` descarta alterações locais a ficheiros do git. O `.env`, o `data/` e o `backups/` não são afetados, porque não estão no git.
+
+### Bot: `403 Forbidden (error code: 50001): Missing Access`
+
+O Discord não deixa o bot registar os comandos no servidor indicado. Confirma:
+
+1. **`DISCORD_GUILD_ID` é o ID do servidor**, não de um canal: botão direito no **ícone do servidor** (barra da esquerda) → *Copiar ID do servidor*.
+2. **O bot foi convidado com os dois scopes**, `bot` **e** `applications.commands`: no portal, *OAuth2* → *URL Generator*, marca os dois, abre o link gerado e adiciona o bot outra vez ao mesmo servidor (não é preciso removê-lo antes).
+3. `docker compose restart manager` e procura `Bot do Discord ligado como …` em `docker compose logs manager`.
+
 ## Desenvolvimento
 
 ```bash
