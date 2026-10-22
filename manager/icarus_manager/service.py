@@ -350,10 +350,18 @@ class Manager:
             "crash_loop": "🛑 **O servidor foi abaixo várias vezes seguidas e ficou parado.** "
                           "Vê `docker compose logs icarus` e usa /restart quando estiver resolvido.",
             "stopped": "⏹️ Servidor parado.",
-            "offline": "🔴 **O servidor não está a responder** (PC desligado, Docker parado ou contentor em baixo?)",
+            "offline": self._offline_message(),
         }
         if health in messages:
             self.notify(messages[health])
+
+    def _offline_message(self):
+        last = self.control_last_alive()
+        if not last:
+            return ("🔴 **O servidor nunca deu sinal de vida.** O contentor `icarus` não arrancou ou está a "
+                    "reiniciar em ciclo: vê `docker compose ps` e `docker compose logs icarus --tail 100`.")
+        return (f"🔴 **O servidor não está a responder** (último sinal há {_ago(last)}). PC desligado, "
+                "Docker parado ou contentor em baixo? Vê `docker compose ps` e `docker compose logs icarus`.")
 
     def control_last_alive(self):
         return self.control.status().get("heartbeat", 0)

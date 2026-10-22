@@ -38,6 +38,8 @@ RUN useradd -m -u 1000 -s /bin/bash steam \
  && chown -R steam:steam "$STEAMCMD_DIR" "$GAME_DIR" "$DATA_DIR" "$CONTROL_DIR"
 
 COPY --chmod=755 entrypoint.sh supervisor.sh /usr/local/bin/
+# Safety net for clones made on Windows with CRLF line endings
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh /usr/local/bin/supervisor.sh
 
 # Healthy while the supervisor is alive and the server is running (or being
 # restarted/updated on purpose)
