@@ -41,6 +41,27 @@ def _is_admin(cfg, interaction):
     return bool(perms and perms.administrator)
 
 
+# View Channels + Send Messages
+INVITE_PERMISSIONS = 1024 + 2048
+
+
+def invite_url(app_id, guild_id=None):
+    url = (f"https://discord.com/oauth2/authorize?client_id={app_id}"
+           f"&scope=bot+applications.commands&permissions={INVITE_PERMISSIONS}")
+    return f"{url}&guild_id={guild_id}&disable_guild_select=true" if guild_id else url
+
+
+def access_hint(app_id, guild_id, joined):
+    """Explains a 403 Missing Access when syncing commands. `joined` maps guild id -> name."""
+    url = invite_url(app_id, guild_id)
+    where = ", ".join(f"{name} ({gid})" for gid, name in joined.items()) or "nenhum"
+    if guild_id and guild_id not in joined:
+        return (f"O bot NÃO está no servidor Discord {guild_id} (está em: {where}). Ou o DISCORD_GUILD_ID está "
+                f"errado, ou o convite não chegou a ser concluído. Abre este link e autoriza: {url}")
+    return (f"O bot está no servidor {guild_id} mas sem o scope 'applications.commands', por isso não pode criar "
+            f"comandos. Abre este link e autoriza outra vez (não é preciso remover o bot): {url}")
+
+
 class PasswordGuard:
     """Checks the command password and locks a user out after repeated failures."""
 
@@ -177,10 +198,8 @@ async def _run(manager):
         try:
             synced = await tree.sync(guild=guild)
         except discord.Forbidden:
-            log.error("O Discord recusou registar os comandos no servidor %s (Missing Access). Confirma que "
-                      "DISCORD_GUILD_ID é o ID do servidor Discord (não de um canal) e que o bot foi convidado "
-                      "com os scopes 'bot' e 'applications.commands' (ver README, secção do bot).",
-                      cfg.bot_guild_id or "global")
+            joined = {g.id: g.name for g in client.guilds}
+            log.error(access_hint(client.application_id, cfg.bot_guild_id, joined))
             return
         log.info("Bot do Discord ligado como %s (%d comandos%s%s)", client.user, len(synced),
                  "" if guild else "; sem DISCORD_GUILD_ID os comandos podem demorar até 1h a aparecer",
