@@ -214,6 +214,17 @@ Para o criar:
 5. Define `DISCORD_BOT_COMMAND_PASSWORD` no `.env`.
 6. `docker compose up -d manager`
 
+### Termos de Serviço e Política de Privacidade
+
+O portal do Discord pede links para os termos e a privacidade do bot. Estão em `docs/` (PT + EN), prontos para o GitHub Pages:
+
+- `https://pedrostick3.github.io/icarus-server/terms.html`
+- `https://pedrostick3.github.io/icarus-server/privacy.html`
+
+Para os publicar: GitHub → *Settings* → *Pages* → *Source: Deploy from a branch* → `main` / `/docs` → *Save*. Ao fim de 1–2 min os links acima funcionam; cola-os no portal do Discord (*General Information*).
+
+> O GitHub Pages só funciona em repositórios **públicos**, a não ser que tenhas GitHub Pro. O repositório não tem segredos (o `.env` está no `.gitignore`), por isso pode ficar público. Se preferires mantê-lo privado, cria um repositório público só com a pasta `docs/`.
+
 ### Instruções para os jogadores (`/ligar`)
 
 Qualquer pessoa no canal escreve `/ligar` e recebe, só para si, o passo-a-passo para entrar:
