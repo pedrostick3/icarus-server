@@ -80,6 +80,8 @@ class Config:
     bot_guild_id: int
     bot_admin_user_ids: set
     bot_admin_role_ids: set
+    bot_command_password: str
+    bot_max_failed_attempts: int
 
     # Backup triggers
     interval_minutes: float
@@ -119,6 +121,12 @@ class Config:
     healthcheck_url: str
     healthcheck_interval_minutes: float
     disk_min_free_gb: float
+    restore_test_days: float
+
+    # Dynamic DNS
+    duckdns_domain: str
+    duckdns_token: str
+    ddns_interval_minutes: float
 
     @classmethod
     def from_env(cls):
@@ -141,6 +149,8 @@ class Config:
             bot_guild_id=env_int("DISCORD_GUILD_ID", 0),
             bot_admin_user_ids=env_ids("DISCORD_ADMIN_USER_IDS"),
             bot_admin_role_ids=env_ids("DISCORD_ADMIN_ROLE_IDS"),
+            bot_command_password=os.environ.get("DISCORD_BOT_COMMAND_PASSWORD", ""),
+            bot_max_failed_attempts=env_int("DISCORD_BOT_MAX_FAILED_ATTEMPTS", 5),
             interval_minutes=env_float("BACKUP_INTERVAL_MINUTES", 60),
             only_if_changed=env_bool("BACKUP_ONLY_IF_CHANGED", True),
             on_start=env_bool("BACKUP_ON_START", True),
@@ -171,10 +181,14 @@ class Config:
             healthcheck_url=env_str("HEALTHCHECK_PING_URL"),
             healthcheck_interval_minutes=env_float("HEALTHCHECK_INTERVAL_MINUTES", 5),
             disk_min_free_gb=env_float("DISK_MIN_FREE_GB", 5),
+            restore_test_days=env_float("RESTORE_TEST_DAYS", 7),
+            duckdns_domain=env_str("DUCKDNS_DOMAIN"),
+            duckdns_token=env_str("DUCKDNS_TOKEN"),
+            ddns_interval_minutes=env_float("DDNS_INTERVAL_MINUTES", 5),
         )
 
     def summary(self):
-        hidden = {"webhook_url", "bot_token", "healthcheck_url"}
+        hidden = {"webhook_url", "bot_token", "bot_command_password", "healthcheck_url", "duckdns_token"}
         out = []
         for f in fields(self):
             value = getattr(self, f.name)

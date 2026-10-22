@@ -97,6 +97,27 @@ class BackupTest(unittest.TestCase):
             (self.cfg.backup_dir / f"joined.zip.{n:03d}").write_bytes(data[i:i + 100])
         self.assertEqual(self.backup.prepare_restore("joined.zip.001").read_bytes(), data)
 
+    def test_server_settings_never_backed_up(self):
+        ini = self.prospects.parent / "ServerSettings.ini"
+        ini.write_text("AdminPassword=segredo")
+        os.utime(ini, (time.time() - 60,) * 2)
+        with zipfile.ZipFile(self.backup.run("com ini")) as zf:
+            self.assertFalse(any(n.endswith("ServerSettings.ini") for n in zf.namelist()))
+
+    def test_verify_detects_broken_saves(self):
+        good = self.backup.run("bom")
+        self.assertEqual(self.backup.verify(good), ["Mundo"])
+        bad = self.cfg.backup_dir / "icarus-20260101-000000-mau.zip"
+        with zipfile.ZipFile(bad, "w") as zf:
+            zf.writestr("Saved/PlayerData/DedicatedServer/Prospects/Mundo.json", '{"cortado": ')
+        with self.assertRaises(ValueError):
+            self.backup.verify(bad)
+        empty = self.cfg.backup_dir / "icarus-20260101-000001-vazio.zip"
+        with zipfile.ZipFile(empty, "w") as zf:
+            zf.writestr("outra/coisa.txt", "x")
+        with self.assertRaises(ValueError):
+            self.backup.verify(empty)
+
 
 if __name__ == "__main__":
     unittest.main()

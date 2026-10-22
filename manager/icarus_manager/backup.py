@@ -14,6 +14,8 @@ from .retention import to_delete
 
 log = logging.getLogger(__name__)
 
+SECRET_FILES = {"ServerSettings.ini"}
+
 
 class NotReady(Exception):
     """Save files are being written or are not valid yet; try again later."""
@@ -44,7 +46,7 @@ class Backup:
         except (OSError, ValueError):
             return {}
 
-    def _save_state(self):
+    def save_state(self):
         self.cfg.backup_dir.mkdir(parents=True, exist_ok=True)
         tmp = self.state_file.with_suffix(".tmp")
         tmp.write_text(json.dumps(self.state, indent=2))
@@ -68,7 +70,8 @@ class Backup:
                 files.append(path)
             elif path.is_dir():
                 files.extend(p for p in path.rglob("*") if p.is_file() and not p.name.endswith(".tmp"))
-        return sorted(set(files))
+        # Holds the passwords and is regenerated from .env anyway: never ship it
+        return sorted({f for f in files if f.name not in SECRET_FILES})
 
     @staticmethod
     def _snapshot(files):
@@ -134,7 +137,7 @@ class Backup:
             log.info("Backup criado: %s (%s → %s)", zip_path.name, human(raw_size), human(zip_path.stat().st_size))
             self._rotate_local()
             self.state.update(last_hash=content_hash, last_backup_at=time.time(), last_file=zip_path.name)
-            self._save_state()
+            self.save_state()
 
         self.last_errors = self._ship(zip_path, reason, files, raw_size)
         return zip_path
@@ -185,6 +188,27 @@ class Backup:
 
     def list_local(self):
         return sorted(self.cfg.backup_dir.glob("icarus-*.zip"), reverse=True)
+
+    def verify(self, path):
+        """Restore test without touching the server: every file must extract and
+        every save must parse. Returns the list of prospect names in the backup."""
+        prospects = []
+        with zipfile.ZipFile(path) as zf:
+            bad = zf.testzip()
+            if bad:
+                raise ValueError(f"ficheiro corrompido dentro do zip: {bad}")
+            for name in zf.namelist():
+                if name.lower().endswith(".json"):
+                    with zf.open(name) as fh:
+                        try:
+                            json.load(fh)
+                        except ValueError as err:
+                            raise ValueError(f"{name} não é JSON válido ({err})") from err
+                    if "/Prospects/" in name:
+                        prospects.append(name.rsplit("/", 1)[-1][:-5])
+        if not prospects:
+            raise ValueError("o backup não tem nenhum prospect")
+        return sorted(prospects)
 
     def prepare_restore(self, name):
         """Resolve a backup name (joining .001/.002 parts if needed) and check the zip."""

@@ -14,7 +14,7 @@ O mundo vive num PC sempre ligado e qualquer um de nós pode entrar quando quise
 │   • backups ► ./backups (rotação) ► Discord ► rclone/Google Drive (opcional) │
 │   • jogadores online (query Steam A2S, ou log)                               │
 │   • reinício diário 07:00 só se vazio • atualiza quando sai versão nova      │
-│   • avisos online/offline • ping healthchecks.io • bot /status /restart …    │
+│   • avisos online/offline • healthchecks.io • DuckDNS • bot com password     │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -26,6 +26,38 @@ O mundo vive num PC sempre ligado e qualquer um de nós pode entrar quando quise
 | `./config/rclone` | `rclone.conf` (só se usares Google Drive) |
 | `windows/` | plano B: correr o servidor nativo no Windows com a mesma `./data` |
 | volume `icarus-game` | ficheiros do jogo (vários GB, re-descarregáveis) |
+
+---
+
+## ✅ Checklist: o que tens de fazer tu
+
+O código trata do resto, mas estes passos são no teu hardware ou nas tuas contas. Cada um está explicado na secção indicada.
+
+**No PC servidor**
+- [ ] Escolher Linux ou Windows e instalar o Docker ([§1](#1-preparar-o-pc-servidor))
+- [ ] Windows: `.wslconfig` com 12 GB, Docker a arrancar no login, login automático (Autologon), horas de atividade do Windows Update ([§1](#opção-b-windows-docker-desktop))
+- [ ] Energia: nunca suspender; fechar a tampa → não fazer nada ([§1](#em-ambos-é-um-portátil))
+- [ ] BIOS: *Power On with AC Attach* ativado ([§1](#em-ambos-é-um-portátil))
+- [ ] Lenovo Vantage: *Modo de conservação* da bateria ativado ([§1](#em-ambos-é-um-portátil))
+- [ ] IP local fixo para o PC servidor (reserva DHCP no router) ([§4](#4-rede-deixar-o-amigo-entrar))
+
+**No router / rede**
+- [ ] Confirmar que não há CGNAT comparando os IPv4 ([§4](#como-ver-se-tens-cgnat-vodafone))
+- [ ] Reencaminhar as portas UDP 17777 e 27015 ([§4](#4-rede-deixar-o-amigo-entrar))
+- [ ] (opcional) Conta DuckDNS para um nome fixo ([§4](#nome-fixo-com-duckdns-opcional))
+
+**Contas e `.env`**
+- [ ] `JOIN_PASSWORD` e `ADMIN_PASSWORD` do jogo
+- [ ] Webhook do Discord ([§5](#5-discord))
+- [ ] (opcional) Bot do Discord + `DISCORD_BOT_COMMAND_PASSWORD` ([§5](#bot-com-comandos-opcional))
+- [ ] (opcional) healthchecks.io para saber se o PC morre ([§8](#8-monitorização-saber-quando-o-pc-morre))
+- [ ] (mais tarde) Google Drive via rclone ([§6](#google-drive-pronto-mas-desligado))
+
+**Depois de arrancar**
+- [ ] Importar o mundo do teu amigo ([§3](#3-trazer-o-mundo-do-teu-amigo-p2p--dedicado))
+- [ ] Ver se `/status` (ou `$M status`) mostra os jogadores; se mostrar, a query Steam funciona
+- [ ] Desligar o PC da corrente e voltar a ligar (ou reiniciá-lo) e confirmar que o servidor volta sozinho
+- [ ] Uma vez por mês, um restauro a sério ([§6](#ensaio-de-restauro-a-sério-manual))
 
 ---
 
@@ -112,19 +144,33 @@ No router, reencaminha para o IP local do PC servidor (e fixa esse IP por DHCP):
 
 Não abras mais nada. No jogo: *Dedicated Servers* → procura pelo `SERVER_NAME`.
 
+Na Vodafone o router está em `http://vodafonegw` (ou `http://192.168.1.1`). O utilizador e a password estão no autocolante do router. O reencaminhamento de portas costuma estar em *Avançado* → *NAT* → *Mapeamento de portas* (o nome exato varia com o firmware). Cria duas regras, UDP 17777 e UDP 27015, para o IP local do PC servidor.
+
 ### Como ver se tens CGNAT (Vodafone)
 
 Com CGNAT o operador partilha um IP público por vários clientes, e o port forwarding **não funciona**.
 
-1. Entra no router (`http://192.168.1.1`; o utilizador e a password estão no autocolante do router) e vê o **endereço IPv4 da WAN/Internet**.
-2. Abre [ifconfig.me](https://ifconfig.me) num PC da tua rede.
+1. No router, vê o **endereço IPv4 da WAN**.
+2. Vê o teu IPv4 público visto de fora. **Cuidado:** a Vodafone dá IPv6, e o ifconfig.me mostra o IPv6 se o houver. Usa um site só de IPv4: [api.ipify.org](https://api.ipify.org) ou [ipv4.icanhazip.com](https://ipv4.icanhazip.com).
 3. Compara:
    - **Iguais** → tens IP público, o port forwarding funciona. ✅
    - **Diferentes**, ou o da WAN começa por `100.64.` a `100.127.` (ou `10.`) → **CGNAT**. ❌
 
+> O teu router mostra a WAN `46.189.146.168`, que é um IP público (não está nas gamas de CGNAT), por isso **muito provavelmente não tens CGNAT**. Falta só confirmar que o api.ipify.org mostra o mesmo número.
+
 Se tiveres CGNAT: liga para o apoio da Vodafone e pede **IP público** / desativação do CGNAT (normalmente fazem-no sem custo nas fibras, mas confirma). A alternativa sem depender da Vodafone é o [Tailscale](https://tailscale.com) (grátis): instalas no servidor e no PC do teu amigo, e ele liga-se ao IP Tailscale do servidor (`100.x.y.z:17777`).
 
-> O IP público residencial costuma mudar de vez em quando. Pela lista da Steam encontram o servidor pelo nome na mesma.
+> O IP público residencial costuma mudar de vez em quando (o router mostra a "duração da ligação"). Pela lista da Steam encontram o servidor pelo nome na mesma; para um endereço fixo usa o DuckDNS.
+
+### Nome fixo com DuckDNS (opcional)
+
+Para terem sempre o mesmo endereço (ex.: `icarus-casa.duckdns.org:17777`), mesmo quando o IP de casa muda:
+
+1. Entra em [duckdns.org](https://www.duckdns.org) (login com Google/GitHub) e cria um subdomínio, ex.: `icarus-casa`.
+2. No `.env`: `DUCKDNS_DOMAIN=icarus-casa` e `DUCKDNS_TOKEN=<token da página>`.
+3. `docker compose up -d manager`
+
+O manager verifica o IPv4 público a cada 5 min e atualiza o DuckDNS quando muda. O `/status` mostra o endereço. Quando o IP muda, o canal recebe um aviso sem o IP (o canal é partilhado).
 
 ---
 
@@ -149,9 +195,14 @@ Cada tipo de aviso liga/desliga no `.env`.
 |---|---|---|
 | `/status` | todos | estado, jogadores, build, último backup, disco |
 | `/backups` | todos | últimos 10 backups locais |
-| `/backup` | admins | backup imediato |
-| `/restart [atualizar] [forcar]` | admins | reinício gracioso com backup antes (recusa com jogadores, exceto se `forcar`) |
-| `/update [forcar]` | admins | atualiza se houver versão nova |
+| `/backup` | admins + password | backup imediato |
+| `/restart [atualizar] [forcar]` | admins + password | reinício gracioso com backup antes (recusa com jogadores, exceto se `forcar`) |
+| `/update [forcar]` | admins + password | atualiza se houver versão nova |
+
+**Password dos comandos:** quando um admin usa `/backup`, `/restart` ou `/update`, o bot abre um **popup privado** a pedir a `DISCORD_BOT_COMMAND_PASSWORD`. A password nunca aparece no canal e só quem a escreveu vê a resposta "password errada".
+- Ao fim de `DISCORD_BOT_MAX_FAILED_ATTEMPTS` (5) tentativas erradas, o utilizador fica bloqueado 15 min e o canal recebe um aviso.
+- Sem password definida, estes três comandos ficam **desativados**.
+- Usa uma password própria, diferente das do jogo.
 
 Para o criar:
 
@@ -159,7 +210,16 @@ Para o criar:
 2. *OAuth2* → *URL Generator* → scopes `bot` + `applications.commands`, permissões *View Channels* + *Send Messages* → abre o link e adiciona ao teu servidor.
 3. No Discord: *Definições* → *Avançado* → ✅ *Modo de programador*. Botão direito no servidor → *Copiar ID* → `DISCORD_GUILD_ID`.
 4. Quem pode usar os comandos de admin: `DISCORD_ADMIN_USER_IDS` e/ou `DISCORD_ADMIN_ROLE_IDS` (botão direito → *Copiar ID*). Se ambos estiverem vazios, só os administradores do servidor Discord.
-5. `docker compose up -d manager`
+5. Define `DISCORD_BOT_COMMAND_PASSWORD` no `.env`.
+6. `docker compose up -d manager`
+
+### Canal partilhado: o que fica protegido
+
+- O `ServerSettings.ini` (que tem a `JoinPassword` e a `AdminPassword`) **nunca entra nos backups**, mesmo que alguém o meta em `BACKUP_PATHS`. É regenerado a partir do `.env` em cada arranque.
+- O IP de casa não é publicado; os avisos do DuckDNS só dizem que mudou.
+- Quem estiver no canal pode descarregar os backups do mundo. Se isso não for desejável, usa um canal só para vocês os dois ou `DISCORD_UPLOAD_BACKUPS=false`.
+- O URL do webhook, o token do bot e a password dos comandos só existem no `.env`, que não vai para o git. Se algum deles for parar ao chat, apaga-o e gera outro.
+
 
 ---
 
@@ -207,6 +267,18 @@ docker compose exec manager python -m icarus_manager restore icarus-20261022-070
 ```
 
 Faz backup do estado atual, para o servidor, guarda uma cópia da pasta atual em `data/restore-snapshots/`, extrai o backup e volta a arrancar. Recusa se houver jogadores online, exceto com `--force`.
+
+### Teste de restauro automático
+
+A cada `RESTORE_TEST_DAYS` (7) dias, o manager pega no último backup, extrai todos os ficheiros e valida cada save. O resultado vai para o canal (🧪 OK ou 🧪❌ falhou). Isto apanha zips corrompidos e saves cortados, sem tocar no servidor.
+
+### Ensaio de restauro a sério (manual)
+
+O teste automático não consegue abrir o mundo no jogo. Uma vez por mês, num momento em que ninguém está a jogar:
+
+1. `$M restore <último backup>` (vê os nomes com `/backups`).
+2. Entra no jogo e confirma que a base e o inventário estão como esperado.
+3. Se algo estiver mal, a pasta anterior está em `data/restore-snapshots/`.
 
 ---
 
@@ -282,4 +354,4 @@ Os testes incluem uma integração que corre o `server/supervisor.sh` verdadeiro
 
 - Ao parar ou reiniciar é enviado Ctrl+C ao servidor, com `SHUTDOWN_TIMEOUT` segundos para fechar. O Icarus grava periodicamente e quando os jogadores saem, e os reinícios automáticos só acontecem com o servidor vazio.
 - Em cada arranque, o `ServerSettings.ini` é reescrito a partir do `.env`, mas só nas chaves geridas. Outras chaves que lá metas à mão mantêm-se.
-- Não metas o `ServerSettings.ini` em `BACKUP_PATHS` se o canal do Discord for partilhado: tem as passwords.
+- O `ServerSettings.ini` nunca entra nos backups (tem as passwords). Para mudar de PC, copia o `.env`.

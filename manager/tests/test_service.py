@@ -109,6 +109,30 @@ class ServiceTest(unittest.TestCase):
         self.m._monitor_server()
         self.assertIn("não está a responder", self.sent[-1])
 
+    def test_restore_test_runs_once_per_period(self):
+        good = mock.Mock(name="zip")
+        good.name = "icarus-x.zip"
+        self.m.backup.list_local = lambda: [good]
+        self.m.backup.verify = mock.Mock(return_value=["Mundo"])
+        self.m._restore_test()
+        self.m.next_restore_test = 0
+        self.m._restore_test()
+        self.m.backup.verify.assert_called_once()
+        self.assertIn("Teste de restauro OK", self.sent[-1])
+
+        self.m.backup.state["last_restore_test_at"] = 0
+        self.m.next_restore_test = 0
+        self.m.backup.verify.side_effect = ValueError("cortado")
+        self.m._restore_test()
+        self.assertIn("falhou", self.sent[-1])
+
+    def test_ddns_change_notifies_without_revealing_ip(self):
+        self.m.duckdns = mock.Mock(enabled=True, hostname="casa.duckdns.org")
+        self.m.duckdns.update.return_value = "46.189.1.2"
+        self.m._update_ddns()
+        self.assertIn("casa.duckdns.org", self.sent[-1])
+        self.assertNotIn("46.189", self.sent[-1])
+
 
 if __name__ == "__main__":
     unittest.main()

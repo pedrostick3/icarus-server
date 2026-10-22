@@ -1,6 +1,7 @@
 """The manager: backups, server monitoring, scheduled restart and game updates."""
 
 import logging
+import os
 import queue
 import shutil
 import threading
@@ -11,6 +12,7 @@ from datetime import datetime, timedelta
 from . import a2s, steam
 from .backup import Backup, NotReady, human
 from .control import Control
+from .ddns import DuckDNS
 from .discord_webhook import Discord
 from .players import PlayerTracker
 from .rclone import Rclone
@@ -58,6 +60,10 @@ class Manager:
         self.next_ping = 0.0
         self.next_disk_check = 0.0
         self.disk_warned_on = None
+        self.duckdns = DuckDNS(cfg.duckdns_domain, cfg.duckdns_token)
+        self.next_ddns = 0.0
+        self.ddns_failing = False
+        self.next_restore_test = 0.0
 
     # ================================================================== helpers
 
@@ -183,6 +189,8 @@ class Manager:
             lines.append(f"📦 Último backup: {self.backup.last_file} (há {_ago(self.backup.last_backup_at)})")
         if self.cfg.daily_restart:
             lines.append(f"⏰ Reinício diário: {self.cfg.daily_restart_time:%H:%M} (só se estiver vazio)")
+        if self.duckdns.enabled:
+            lines.append(f"🌐 Endereço: `{self.duckdns.hostname}:{_game_port()}`")
         lines.append(f"☁️ rclone: {self.rclone.describe()}")
         lines.append(f"💽 Disco livre: {human(shutil.disk_usage(self.cfg.backup_dir).free)}")
         return "\n".join(lines)
@@ -192,10 +200,11 @@ class Manager:
     def serve(self):
         cfg = self.cfg
         log.info("Manager iniciado. Discord: %s | bot: %s | rclone: %s | intervalo backup: %s min | "
-                 "reinício diário: %s | auto-update: %s",
+                 "reinício diário: %s | auto-update: %s | DuckDNS: %s",
                  "sim" if self.discord.enabled else "não", "sim" if cfg.bot_token else "não",
                  self.rclone.describe(), cfg.interval_minutes,
-                 cfg.daily_restart_time.strftime("%H:%M") if cfg.daily_restart else "não", cfg.auto_update)
+                 cfg.daily_restart_time.strftime("%H:%M") if cfg.daily_restart else "não", cfg.auto_update,
+                 self.duckdns.hostname if self.duckdns.enabled else "não")
         log.debug("Config: %s", cfg.summary())
 
         self.tracker.start()
@@ -208,7 +217,8 @@ class Manager:
 
         while True:
             for step in (self._handle_events, self._monitor_server, self._schedule_backups,
-                         self._daily_restart, self._check_updates, self._ping_healthcheck, self._check_disk):
+                         self._daily_restart, self._check_updates, self._ping_healthcheck, self._check_disk,
+                         self._update_ddns, self._restore_test):
                 try:
                     step()
                 except Exception:
@@ -398,6 +408,55 @@ class Manager:
         if free < self.cfg.disk_min_free_gb * 1024 ** 3 and self.disk_warned_on != today:
             self.disk_warned_on = today
             self.notify(f"💽 Pouco espaço em disco no servidor: {human(free)} livres.")
+
+    # ------------------------------------------------------------------ dynamic DNS
+
+    def _update_ddns(self):
+        if not self.duckdns.enabled or time.time() < self.next_ddns:
+            return
+        self.next_ddns = time.time() + self.cfg.ddns_interval_minutes * 60
+        try:
+            changed = self.duckdns.update()
+        except Exception as err:
+            log.warning("DuckDNS falhou: %s", err)
+            if not self.ddns_failing and self.cfg.notify_errors:
+                self.notify(f"⚠️ Não consegui atualizar o DuckDNS: `{err}`")
+            self.ddns_failing = True
+            return
+        self.ddns_failing = False
+        if changed:
+            # The IP itself is not posted: the channel is shared
+            self.notify(f"🌐 O IP público de casa mudou; `{self.duckdns.hostname}` já foi atualizado.")
+
+    # ------------------------------------------------------------------ restore test
+
+    def _restore_test(self):
+        days = self.cfg.restore_test_days
+        if days <= 0 or time.time() < self.next_restore_test:
+            return
+        self.next_restore_test = time.time() + 3600
+        if time.time() - self.backup.state.get("last_restore_test_at", 0) < days * 86400:
+            return
+        backups = self.backup.list_local()
+        if not backups:
+            return
+        latest = backups[0]
+        try:
+            prospects = self.backup.verify(latest)
+        except Exception as err:
+            log.exception("Teste de restauro falhou")
+            self.notify(f"🧪❌ **Teste de restauro falhou** para `{latest.name}`: {err}. "
+                        "Confirma os backups o quanto antes!")
+        else:
+            log.info("Teste de restauro OK: %s (%s)", latest.name, ", ".join(prospects))
+            self.notify(f"🧪 Teste de restauro OK: `{latest.name}` extrai sem erros "
+                        f"(prospects: {', '.join(prospects)}).")
+        self.backup.state["last_restore_test_at"] = time.time()
+        self.backup.save_state()
+
+
+def _game_port():
+    return os.environ.get("GAME_PORT", "").strip() or "17777"
 
 
 def _parse_time(value):
