@@ -63,8 +63,15 @@ class Config:
 
     # Game server
     server_host: str
+    server_name: str
+    game_port: int
     query_port: int
     steam_branch: str
+    load_prospect: str
+
+    # /ligar instructions
+    connect_password_hint: str
+    connect_extra_info: str
 
     # Discord webhook (backups + notifications)
     webhook_url: str
@@ -136,8 +143,16 @@ class Config:
             backup_dir=Path(env_str("BACKUP_DIR", "/backups")),
             control_dir=Path(env_str("CONTROL_DIR", "/control")),
             server_host=env_str("SERVER_HOST", "icarus"),
+            server_name=env_str("SERVER_NAME", "Icarus Caseiro"),
+            game_port=env_int("GAME_PORT", 17777),
             query_port=env_int("QUERY_PORT", 27015),
             steam_branch=env_str("STEAM_BRANCH", "public"),
+            load_prospect=env_str("LOAD_PROSPECT"),
+            connect_password_hint=env_str(
+                "CONNECT_PASSWORD_HINT",
+                "Pede-a ao admin (não é publicada aqui porque o canal é partilhado).",
+            ),
+            connect_extra_info=env_str("CONNECT_EXTRA_INFO").replace("\\n", "\n"),
             webhook_url=env_str("DISCORD_WEBHOOK_URL"),
             discord_username=env_str("DISCORD_USERNAME", "Icarus"),
             discord_max_file_mb=env_float("DISCORD_MAX_FILE_MB", 9.5),

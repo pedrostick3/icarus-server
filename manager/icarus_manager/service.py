@@ -1,7 +1,6 @@
 """The manager: backups, server monitoring, scheduled restart and game updates."""
 
 import logging
-import os
 import queue
 import shutil
 import threading
@@ -190,9 +189,60 @@ class Manager:
         if self.cfg.daily_restart:
             lines.append(f"⏰ Reinício diário: {self.cfg.daily_restart_time:%H:%M} (só se estiver vazio)")
         if self.duckdns.enabled:
-            lines.append(f"🌐 Endereço: `{self.duckdns.hostname}:{_game_port()}`")
+            lines.append(f"🌐 Endereço: `{self.duckdns.hostname}:{self.cfg.game_port}`")
         lines.append(f"☁️ rclone: {self.rclone.describe()}")
         lines.append(f"💽 Disco livre: {human(shutil.disk_usage(self.cfg.backup_dir).free)}")
+        return "\n".join(lines)
+
+    def connect_text(self):
+        """Step-by-step instructions for a player to join, safe for a shared channel."""
+        cfg = self.cfg
+        health = self.compute_health(self.control.status())
+        name = cfg.server_name
+        if health == "online":
+            state = f"🟢 Online agora ({self.players()} a jogar)."
+        elif health in ("maintenance", "starting"):
+            state = "🛠️ Está a reiniciar/atualizar; espera uns minutos e vê `/status`."
+        else:
+            state = f"{HEALTH_LABELS.get(health, health)} — de momento não dá para entrar; avisa o admin."
+        lines = [
+            f"## 🎮 Como entrar no servidor **{name}**",
+            f"**Estado:** {state}",
+            "",
+            "**1. Atualiza o jogo**",
+            "• O servidor está sempre na última versão do Icarus. Deixa a Steam atualizar o jogo antes de entrar.",
+            "",
+            "**2. Encontra o servidor**",
+            "• Abre o Icarus → **Play** → separador **Dedicated Servers**.",
+            f"• Pesquisa por **{name}**, seleciona-o e carrega em **Join**.",
+        ]
+        if self.duckdns.enabled:
+            lines += [
+                "• Se não aparecer na lista, usa a ligação direta (*Direct Connect*) com "
+                f"`{self.duckdns.hostname}:{cfg.game_port}`, ou adiciona-o na Steam: *Ver* → *Servidores de jogo* "
+                f"→ *Favoritos* → ➕ `{self.duckdns.hostname}:{cfg.query_port}`.",
+            ]
+        lines += [
+            "",
+            "**3. Password do servidor**",
+            f"• O jogo pede-a ao entrar. {cfg.connect_password_hint}",
+            "",
+            "**4. Personagem e mundo**",
+            "• Escolhe a tua personagem (a mesma de sempre).",
+        ]
+        if cfg.load_prospect:
+            lines.append(f"• Se ficares no lobby, escolhe o mundo **{cfg.load_prospect}** e entra.")
+        lines += [
+            "",
+            "**Problemas?**",
+            "• *Versão diferente* / não entra → fecha o jogo, reinicia a Steam para forçar a atualização e tenta "
+            "outra vez. Se for o servidor a atualizar, o canal avisa quando estiver 🟢 online.",
+            "• Não aparece na lista → confirma o estado com `/status` e vê se os filtros da lista escondem "
+            "servidores com password.",
+            "• O mundo é guardado automaticamente (backups neste canal); não tens de fazer nada ao sair.",
+        ]
+        if cfg.connect_extra_info:
+            lines += ["", cfg.connect_extra_info]
         return "\n".join(lines)
 
     # ================================================================== main loop
@@ -453,10 +503,6 @@ class Manager:
                         f"(prospects: {', '.join(prospects)}).")
         self.backup.state["last_restore_test_at"] = time.time()
         self.backup.save_state()
-
-
-def _game_port():
-    return os.environ.get("GAME_PORT", "").strip() or "17777"
 
 
 def _parse_time(value):

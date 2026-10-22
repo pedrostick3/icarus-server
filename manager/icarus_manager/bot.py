@@ -130,6 +130,12 @@ async def _run(manager):
         await interaction.response.defer(thinking=True)
         await interaction.followup.send(await asyncio.to_thread(manager.status_text))
 
+    @tree.command(name="ligar", description="Instruções para entrar no servidor de Icarus", guild=guild)
+    async def ligar(interaction: discord.Interaction):
+        await interaction.response.defer(thinking=True, ephemeral=True)
+        text = await asyncio.to_thread(manager.connect_text)
+        await interaction.followup.send(text[:2000], ephemeral=True)
+
     @tree.command(name="backups", description="Lista os últimos backups locais", guild=guild)
     async def backups(interaction: discord.Interaction):
         files = manager.backup.list_local()[:10]

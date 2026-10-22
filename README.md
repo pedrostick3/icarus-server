@@ -42,7 +42,7 @@ O código trata do resto, mas estes passos são no teu hardware ou nas tuas cont
 - [ ] IP local fixo para o PC servidor (reserva DHCP no router) ([§4](#4-rede-deixar-o-amigo-entrar))
 
 **No router / rede**
-- [ ] Confirmar que não há CGNAT comparando os IPv4 ([§4](#como-ver-se-tens-cgnat-vodafone))
+- [x] Confirmar que não há CGNAT comparando os IPv4 ([§4](#como-ver-se-tens-cgnat-vodafone)): feito, há IP público ✅
 - [ ] Reencaminhar as portas UDP 17777 e 27015 ([§4](#4-rede-deixar-o-amigo-entrar))
 - [ ] (opcional) Conta DuckDNS para um nome fixo ([§4](#nome-fixo-com-duckdns-opcional))
 
@@ -156,7 +156,7 @@ Com CGNAT o operador partilha um IP público por vários clientes, e o port forw
    - **Iguais** → tens IP público, o port forwarding funciona. ✅
    - **Diferentes**, ou o da WAN começa por `100.64.` a `100.127.` (ou `10.`) → **CGNAT**. ❌
 
-> O teu router mostra a WAN `46.189.146.168`, que é um IP público (não está nas gamas de CGNAT), por isso **muito provavelmente não tens CGNAT**. Falta só confirmar que o api.ipify.org mostra o mesmo número.
+> ✅ Verificado: o router e o api.ipify.org mostram o mesmo IPv4 público, por isso **não há CGNAT** e o port forwarding funciona.
 
 Se tiveres CGNAT: liga para o apoio da Vodafone e pede **IP público** / desativação do CGNAT (normalmente fazem-no sem custo nas fibras, mas confirma). A alternativa sem depender da Vodafone é o [Tailscale](https://tailscale.com) (grátis): instalas no servidor e no PC do teu amigo, e ele liga-se ao IP Tailscale do servidor (`100.x.y.z:17777`).
 
@@ -193,6 +193,7 @@ Cada tipo de aviso liga/desliga no `.env`.
 
 | Comando | Quem | O quê |
 |---|---|---|
+| `/ligar` | todos | passo-a-passo para entrar no servidor (só quem pede vê a resposta) |
 | `/status` | todos | estado, jogadores, build, último backup, disco |
 | `/backups` | todos | últimos 10 backups locais |
 | `/backup` | admins + password | backup imediato |
@@ -212,6 +213,26 @@ Para o criar:
 4. Quem pode usar os comandos de admin: `DISCORD_ADMIN_USER_IDS` e/ou `DISCORD_ADMIN_ROLE_IDS` (botão direito → *Copiar ID*). Se ambos estiverem vazios, só os administradores do servidor Discord.
 5. Define `DISCORD_BOT_COMMAND_PASSWORD` no `.env`.
 6. `docker compose up -d manager`
+
+### Instruções para os jogadores (`/ligar`)
+
+Qualquer pessoa no canal escreve `/ligar` e recebe, só para si, o passo-a-passo para entrar:
+- o estado atual do servidor (online, a atualizar ou em baixo);
+- atualizar o jogo e encontrar o servidor pelo nome;
+- a ligação direta pelo DuckDNS, se estiver configurado;
+- a password (só a dica, nunca a password);
+- o mundo a escolher (`LOAD_PROSPECT`);
+- o que fazer se der "versão diferente" ou o servidor não aparecer.
+
+Personaliza com `CONNECT_PASSWORD_HINT` (ex.: "Está na mensagem afixada do canal privado") e `CONNECT_EXTRA_INFO`.
+
+Sem bot, ou para deixar as instruções **afixadas** no canal:
+
+```bash
+docker compose exec manager python -m icarus_manager connect --post   # publica pelo webhook
+```
+
+Depois, no Discord: ⋯ na mensagem → *Afixar mensagem*. Atenção que o estado ("online agora") fica congelado nessa mensagem; o `/ligar` está sempre atualizado.
 
 ### Canal partilhado: o que fica protegido
 
@@ -327,6 +348,7 @@ docker compose logs -f icarus                         # log do servidor
 docker compose logs -f manager                        # backups, avisos, agendamentos
 M="docker compose exec manager python -m icarus_manager"
 $M status
+$M connect [--post]
 $M backup
 $M restart [--update] [--force]
 $M update [--force]

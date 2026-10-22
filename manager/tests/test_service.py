@@ -133,6 +133,27 @@ class ServiceTest(unittest.TestCase):
         self.assertIn("casa.duckdns.org", self.sent[-1])
         self.assertNotIn("46.189", self.sent[-1])
 
+    def test_connect_instructions_are_safe_and_fit_discord(self):
+        self.m.cfg.server_name = "Icarus do Pedro"
+        self.m.cfg.load_prospect = "MundoDoPedro"
+        with mock.patch.dict(os.environ, {"JOIN_PASSWORD": "segredo-do-jogo"}):
+            text = self.m.connect_text()
+        self.assertIn("Icarus do Pedro", text)
+        self.assertIn("MundoDoPedro", text)
+        self.assertIn("🟢 Online", text)
+        self.assertNotIn("segredo-do-jogo", text)
+        self.assertNotIn("duckdns", text, "no direct address without DuckDNS")
+
+        self.m.duckdns = mock.Mock(enabled=True, hostname="casa.duckdns.org")
+        self.m.cfg.connect_extra_info = "A password está nas mensagens afixadas do canal #privado."
+        self.status["state"] = "updating"
+        text = self.m.connect_text()
+        self.assertIn("casa.duckdns.org:17777", text)
+        self.assertIn("casa.duckdns.org:27015", text)
+        self.assertIn("a reiniciar/atualizar", text)
+        self.assertIn("#privado", text)
+        self.assertLess(len(text), 2000)
+
 
 if __name__ == "__main__":
     unittest.main()

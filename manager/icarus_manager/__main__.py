@@ -3,6 +3,7 @@
   serve                 run the manager (default)
   backup                backup now (even without changes)
   status                server status
+  connect [--post]      how to join the server (same text as /ligar); --post sends it to the channel
   restart [--update]    graceful restart, refuses while players are online unless --force
   update                update the game now (if there is a new build)
   restore <file>        restore a backup from ./backups (.zip or the .001 of a split one)
@@ -24,6 +25,8 @@ def main():
     sub.add_parser("serve")
     sub.add_parser("backup")
     sub.add_parser("status")
+    p = sub.add_parser("connect")
+    p.add_argument("--post", action="store_true", help="publica no canal do Discord (para afixar)")
     p = sub.add_parser("restart")
     p.add_argument("--update", action="store_true", help="atualiza o jogo antes de arrancar")
     p.add_argument("--force", action="store_true", help="mesmo com jogadores online")
@@ -48,6 +51,15 @@ def main():
         print(manager.manual_backup())
     elif command == "status":
         print(manager.status_text())
+    elif command == "connect":
+        text = manager.connect_text()
+        if args.post:
+            if not manager.discord.enabled:
+                sys.exit("DISCORD_WEBHOOK_URL não está definido")
+            manager.discord.send(text)
+            print("Publicado no canal. Afixa a mensagem (⋯ → Afixar mensagem).")
+        else:
+            print(text)
     elif command == "restart":
         finish(*manager.restart("pedido na linha de comandos", update=args.update, force=args.force))
     elif command == "update":
