@@ -34,28 +34,28 @@ O mundo vive num PC sempre ligado e qualquer um de nós pode entrar quando quise
 O código trata do resto, mas estes passos são no teu hardware ou nas tuas contas. Cada um está explicado na secção indicada.
 
 **No PC servidor**
-- [ ] Escolher Linux ou Windows e instalar o Docker ([§1](#1-preparar-o-pc-servidor))
+- [x] Escolher Linux ou Windows e instalar o Docker ([§1](#1-preparar-o-pc-servidor))
 - [ ] Windows: `.wslconfig` com 12 GB, Docker a arrancar no login, login automático (Autologon), horas de atividade do Windows Update ([§1](#opção-b-windows-docker-desktop))
-- [ ] Energia: nunca suspender; fechar a tampa → não fazer nada ([§1](#em-ambos-é-um-portátil))
+- [x] Energia: nunca suspender; fechar a tampa → não fazer nada ([§1](#em-ambos-é-um-portátil))
 - [ ] BIOS: *Power On with AC Attach* ativado ([§1](#em-ambos-é-um-portátil))
-- [ ] Lenovo Vantage: *Modo de conservação* da bateria ativado ([§1](#em-ambos-é-um-portátil))
-- [ ] IP local fixo para o PC servidor (reserva DHCP no router) ([§4](#4-rede-deixar-o-amigo-entrar))
+- [x] Lenovo Vantage: *Modo de conservação* da bateria ativado ([§1](#em-ambos-é-um-portátil))
+- [x] IP local fixo para o PC servidor (reserva DHCP no router) ([§4](#4-rede-deixar-o-amigo-entrar))
 
 **No router / rede**
 - [x] Confirmar que não há CGNAT comparando os IPv4 ([§4](#como-ver-se-tens-cgnat-vodafone)): feito, há IP público ✅
-- [ ] Reencaminhar as portas UDP 17777 e 27015 ([§4](#4-rede-deixar-o-amigo-entrar))
+- [x] Reencaminhar as portas UDP 17777 e 27015 ([§4](#4-rede-deixar-o-amigo-entrar))
 - [ ] (opcional) Conta DuckDNS para um nome fixo ([§4](#nome-fixo-com-duckdns-opcional))
 
 **Contas e `.env`**
-- [ ] `JOIN_PASSWORD` e `ADMIN_PASSWORD` do jogo
-- [ ] Webhook do Discord ([§5](#5-discord))
-- [ ] (opcional) Bot do Discord + `DISCORD_BOT_COMMAND_PASSWORD` ([§5](#bot-com-comandos-opcional))
+- [x] `JOIN_PASSWORD` e `ADMIN_PASSWORD` do jogo
+- [x] Webhook do Discord ([§5](#5-discord))
+- [x] (opcional) Bot do Discord + `DISCORD_BOT_COMMAND_PASSWORD` ([§5](#bot-com-comandos-opcional))
 - [ ] (opcional) healthchecks.io para saber se o PC morre ([§8](#8-monitorização-saber-quando-o-pc-morre))
 - [ ] (mais tarde) Google Drive via rclone ([§6](#google-drive-pronto-mas-desligado))
 
 **Depois de arrancar**
-- [ ] Importar o mundo do teu amigo ([§3](#3-trazer-o-mundo-do-teu-amigo-p2p--dedicado))
-- [ ] Ver se `/status` (ou `$M status`) mostra os jogadores; se mostrar, a query Steam funciona
+- [x] Importar o mundo do teu amigo ([§3](#3-trazer-o-mundo-do-teu-amigo-p2p--dedicado))
+- [x] Ver se `/status` (ou `$M status`) mostra os jogadores; se mostrar, a query Steam funciona
 - [ ] Desligar o PC da corrente e voltar a ligar (ou reiniciá-lo) e confirmar que o servidor volta sozinho
 - [ ] Uma vez por mês, um restauro a sério ([§6](#ensaio-de-restauro-a-sério-manual))
 
