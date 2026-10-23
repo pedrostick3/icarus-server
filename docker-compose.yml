@@ -35,7 +35,10 @@ services:
       EXTRA_ARGS: ${EXTRA_ARGS:-}
     volumes:
       - icarus-game:/opt/icarus     # ficheiros do jogo (re-descarregáveis, vários GB)
-      - ./data:/data                # saves, config e logs — ISTO é o que importa
+      # saves, config e logs — ISTO é o que importa. Por omissão num volume do Docker:
+      # uma pasta do Windows (C:\...) partilhada com o contentor corta os ficheiros grandes
+      # que o Wine lê. Em Linux/WSL podes usar ICARUS_DATA=./data.
+      - ${ICARUS_DATA:-icarus-data}:/data
       - ./import:/import:ro         # larga aqui um prospect .json para o importar
       - ./backups:/backups:ro       # para restaurar backups
       - control:/control            # comandos manager -> servidor
@@ -59,7 +62,7 @@ services:
       TZ: ${TZ:-Europe/Lisbon}
       SERVER_HOST: icarus
     volumes:
-      - ./data:/data:ro
+      - ${ICARUS_DATA:-icarus-data}:/data:ro
       - ./backups:/backups
       - ./config/rclone:/config/rclone   # rclone.conf (opcional; o rclone renova os tokens aqui)
       - control:/control
@@ -71,4 +74,5 @@ services:
 
 volumes:
   icarus-game:
+  icarus-data:
   control:

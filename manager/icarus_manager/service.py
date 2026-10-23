@@ -285,8 +285,7 @@ class Manager:
             if name == "prospect" and self.cfg.notify_errors:
                 world = self.cfg.load_prospect or "(LOAD_PROSPECT vazio)"
                 self.notify(f"⚠️ O servidor não conseguiu carregar o mundo **{world}** e ficou no lobby. "
-                            "Confirma o `LOAD_PROSPECT` no `.env` e o ficheiro em "
-                            "`data/Saved/PlayerData/DedicatedServer/Prospects` "
+                            "Confirma o `LOAD_PROSPECT` no `.env` e o ficheiro em `./import` "
                             "(o `docker compose logs icarus` lista os prospects disponíveis).")
             return
         who = name or "Um jogador"
