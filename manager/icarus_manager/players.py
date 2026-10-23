@@ -136,6 +136,9 @@ class PlayerTracker:
             time.sleep(2)
 
     def _process_line(self, line):
+        if "Failed to load prospect file" in line:
+            self.events.put(("alert", "prospect"))
+            return
         for kind, regex in (("join", self.cfg.join_regex), ("leave", self.cfg.leave_regex)):
             m = regex.search(line)
             if not m:

@@ -20,6 +20,9 @@ CMD_FILE="$CONTROL_DIR/command.json"
 RESULT_FILE="$CONTROL_DIR/result.json"
 CRASH_LIMIT="${CRASH_LIMIT:-5}"
 CRASH_WINDOW_SECONDS=1800
+# Accept "Mundo" or "Mundo.json"
+LOAD_PROSPECT="${LOAD_PROSPECT:-}"
+LOAD_PROSPECT="${LOAD_PROSPECT%.json}"
 
 state="stopped"
 server_pid=""
@@ -124,6 +127,16 @@ set_ini() {
   mv "$INI_FILE.tmp" "$INI_FILE"
 }
 
+# LOAD_PROSPECT is the file name without .json; warn early when it does not exist
+check_load_prospect() {
+  local name="$LOAD_PROSPECT" available
+  [[ -z "$name" ]] && return 0
+  [[ -f "$PROSPECTS_DIR/$name.json" ]] && return 0
+  available="$(find "$PROSPECTS_DIR" -maxdepth 1 -name '*.json' -printf '%f\n' 2>/dev/null | sed 's/\.json$//' | paste -sd ',' -)"
+  log "AVISO: LOAD_PROSPECT=$name mas não existe $name.json em Saved/PlayerData/DedicatedServer/Prospects."
+  log "AVISO: prospects disponíveis: ${available:-nenhum (põe o .json em ./import e recria o contentor)}"
+}
+
 configure_ini() {
   mkdir -p "$(dirname "$INI_FILE")"
   [[ -f "$INI_FILE" ]] || echo "[/Script/Icarus.DedicatedServerSettings]" > "$INI_FILE"
@@ -135,7 +148,7 @@ configure_ini() {
   set_ini ShutdownIfEmptyFor               "${SHUTDOWN_IF_EMPTY_FOR:--1}"
   set_ini AllowNonAdminsToLaunchProspects  "${ALLOW_NON_ADMINS_LAUNCH:-True}"
   set_ini AllowNonAdminsToDeleteProspects  "${ALLOW_NON_ADMINS_DELETE:-False}"
-  set_ini LoadProspect                     "${LOAD_PROSPECT:-}"
+  set_ini LoadProspect                     "$LOAD_PROSPECT"
   set_ini ResumeProspect                   "${RESUME_PROSPECT:-True}"
 }
 
@@ -156,6 +169,7 @@ start_server() {
   fi
   set_state starting
   configure_ini
+  check_load_prospect
   log "A arrancar '${SERVER_NAME:-Icarus Caseiro}' (jogo UDP ${GAME_PORT:-17777}, query UDP ${QUERY_PORT:-27015}, build $(installed_buildid))"
   # shellcheck disable=SC2086  # EXTRA_ARGS is intentionally word-split
   wine "$SERVER_EXE" \
