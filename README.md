@@ -7,7 +7,7 @@ O mundo vive num PC sempre ligado e qualquer um de nós pode entrar quando quise
 ```
 ┌─────────────────────────────── docker compose ───────────────────────────────┐
 │ icarus  (Debian + Wine + SteamCMD)                                           │
-│   supervisor.sh ── arranca/vigia ──► IcarusServer.exe ──escreve──► ./data     │
+│   supervisor.sh ── arranca/vigia ──► IcarusServer.exe ──escreve──► dados      │
 │        ▲  executa comandos (restart, update, restore)                │       │
 │        │  volume "control"                                           │ (ro)  │
 │ manager (Python)                                                     ▼       │
@@ -20,11 +20,11 @@ O mundo vive num PC sempre ligado e qualquer um de nós pode entrar quando quise
 
 | Pasta | O quê |
 |---|---|
-| `./data` | saves, configuração e logs do servidor. **É isto que importa.** |
+| volume `icarus-data` | saves, configuração e logs do servidor. **É isto que importa** (ver [Onde ficam os dados](#onde-ficam-os-dados)) |
 | `./backups` | backups `.zip` locais (com rotação) |
 | `./import` | larga aqui um prospect `.json` para o importar no arranque |
 | `./config/rclone` | `rclone.conf` (só se usares Google Drive) |
-| `windows/` | plano B: correr o servidor nativo no Windows com a mesma `./data` |
+| `windows/` | plano B: correr o servidor nativo no Windows com os mesmos dados |
 | volume `icarus-game` | ficheiros do jogo (vários GB, re-descarregáveis) |
 
 ---
@@ -70,7 +70,7 @@ Por isso este projeto assenta em redes de segurança:
 1. **A imagem só muda quando a reconstróis.** Uma atualização do jogo só traz ficheiros novos do jogo; a versão do Wine fica a mesma. Só há uma variável de cada vez.
 2. **Atualizações controladas.** Só quando ninguém está a jogar, sempre com backup antes. Se a atualização falhar, o servidor volta a arrancar com a versão anterior e recebes um aviso no Discord.
 3. **Deteção de problemas.** Se o servidor for abaixo é reiniciado. Se cair várias vezes seguidas, fica parado e recebes um aviso, em vez de ficar em ciclo.
-4. **Plano B em 5 minutos** ([abaixo](#plano-b-servidor-nativo-no-windows)). Os saves são exatamente os mesmos no Docker e no Windows nativo. Se um dia o Wine falhar, corres `windows/run-server.ps1` com a mesma pasta `data` até haver solução.
+4. **Plano B em 5 minutos** ([abaixo](#plano-b-servidor-nativo-no-windows)). Os saves são exatamente os mesmos no Docker e no Windows nativo. Se um dia o Wine falhar, corres `windows/run-server.ps1` com os mesmos dados até haver solução.
 
 ---
 
@@ -119,6 +119,19 @@ O primeiro arranque demora: descarrega o jogo via SteamCMD e inicializa o Wine.
 
 ---
 
+### Onde ficam os dados
+
+Os saves, a configuração e os logs do servidor ficam num **volume do Docker** (`icarus-data`), e não numa pasta do Windows. Se o projeto estiver em `C:\…`, o Wine lê os ficheiros grandes cortados através da partilha de pastas do Docker Desktop. O mundo falha a carregar com `Unable to parse json` / `Failed to load prospect file`, e as gravações também podiam ficar estragadas.
+
+Não precisas de mexer no volume no dia-a-dia: o mundo entra por `./import`, sai pelos backups em `./backups` (e Discord) e volta com `restore`. Se quiseres ver ou copiar os ficheiros:
+
+```powershell
+docker compose exec icarus ls -la /data/Saved/PlayerData/DedicatedServer/Prospects
+docker compose cp icarus:/data/. data-copia/          # copia tudo para uma pasta do PC
+```
+
+Em Linux, ou com o projeto dentro do WSL, podes usar uma pasta normal: `ICARUS_DATA=./data` no `.env`.
+
 ## 3. Trazer o mundo do teu amigo (P2P → dedicado)
 
 1. No PC dele, com o jogo fechado: `%LocalAppData%\Icarus\Saved\PlayerData\<SteamID64>\Prospects\`
@@ -127,7 +140,7 @@ O primeiro arranque demora: descarrega o jogo via SteamCMD e inicializa o Wine.
 3. Põe-no em `./import/` e no `.env` mete `LOAD_PROSPECT=MundoDoPedro`.
 4. `docker compose up -d --force-recreate icarus`
 
-O ficheiro vai para `data/Saved/PlayerData/DedicatedServer/Prospects/`. Se já existir um com o mesmo nome, só é substituído com `IMPORT_OVERWRITE=true`; nesse caso fica antes uma cópia `.before-import.<data>`.
+O ficheiro vai para `Saved/PlayerData/DedicatedServer/Prospects/` dentro dos dados do servidor. Se já existir um com o mesmo nome, só é substituído com `IMPORT_OVERWRITE=true`; nesse caso fica antes uma cópia `.before-import.<data>`.
 
 > As personagens (nível, talentos, inventário de órbita) ficam do lado de cada jogador, por isso cada um entra com a sua.
 
@@ -298,7 +311,7 @@ Funciona igual para OneDrive, Dropbox, S3, etc. (qualquer destino suportado pelo
 docker compose exec manager python -m icarus_manager restore icarus-20261022-070000-manual.zip
 ```
 
-Faz backup do estado atual, para o servidor, guarda uma cópia da pasta atual em `data/restore-snapshots/`, extrai o backup e volta a arrancar. Recusa se houver jogadores online, exceto com `--force`.
+Faz backup do estado atual, para o servidor, guarda uma cópia da pasta atual em `restore-snapshots/` (dentro dos dados), extrai o backup e volta a arrancar. Recusa se houver jogadores online, exceto com `--force`.
 
 ### Teste de restauro automático
 
@@ -310,7 +323,7 @@ O teste automático não consegue abrir o mundo no jogo. Uma vez por mês, num m
 
 1. `$M restore <último backup>` (vê os nomes com `/backups`).
 2. Entra no jogo e confirma que a base e o inventário estão como esperado.
-3. Se algo estiver mal, a pasta anterior está em `data/restore-snapshots/`.
+3. Se algo estiver mal, a pasta anterior está em `restore-snapshots/` dentro dos dados (ver [Onde ficam os dados](#onde-ficam-os-dados)).
 
 ---
 
@@ -345,9 +358,11 @@ docker compose stop icarus                     # NUNCA os dois ao mesmo tempo
 powershell -ExecutionPolicy Bypass -File .\windows\run-server.ps1
 ```
 
-O script instala o SteamCMD e o jogo em `C:\IcarusServer`, lê o mesmo `.env`, usa a **mesma pasta `data`** e reinicia o servidor se ele cair. O Windows pede para permitir o servidor na firewall: aceita.
+Antes, copia os dados do volume para a pasta `data` do projeto: `docker compose cp icarus:/data/. data/`.
 
-O manager continua a fazer backups. Os comandos de reiniciar/atualizar e o reinício diário não funcionam neste modo, por isso põe `DAILY_RESTART_ENABLED=false`, `AUTO_UPDATE_ENABLED=false` e `DISCORD_NOTIFY_SERVER_STATUS=false` enquanto o usares. Para voltar ao Docker: fecha o script e `docker compose start icarus`.
+O script instala o SteamCMD e o jogo em `C:\IcarusServer`, lê o mesmo `.env`, usa essa pasta `data` e reinicia o servidor se ele cair. O Windows pede para permitir o servidor na firewall: aceita.
+
+O manager continua a fazer backups. Os comandos de reiniciar/atualizar e o reinício diário não funcionam neste modo, por isso põe `DAILY_RESTART_ENABLED=false`, `AUTO_UPDATE_ENABLED=false` e `DISCORD_NOTIFY_SERVER_STATUS=false` enquanto o usares. Para voltar ao Docker: fecha o script, copia os dados de volta (`docker compose cp data/. icarus:/data/`) e `docker compose start icarus`.
 
 ---
 
@@ -364,12 +379,12 @@ $M backup
 $M restart [--update] [--force]
 $M update [--force]
 $M restore <ficheiro>
-docker compose down                                   # pára tudo (./data fica)
+docker compose down                                   # pára tudo (os dados ficam no volume)
 ```
 
 ### Mudar de PC
 
-Copia a pasta do projeto (com `data/`, `.env`, `config/` e, se quiseres, `backups/`) e corre `docker compose up -d --build`. O jogo volta a ser descarregado; o mundo é o mesmo.
+Copia a pasta do projeto (com `.env`, `config/` e `backups/`) para o novo PC, corre `docker compose up -d --build` e restaura o último backup (`$M restore <ficheiro>`). O jogo volta a ser descarregado; o mundo é o mesmo.
 
 ---
 
@@ -386,13 +401,17 @@ docker compose build --no-cache icarus
 docker compose up -d
 ```
 
-> ⚠️ O `git reset --hard` descarta alterações locais a ficheiros do git. O `.env`, o `data/` e o `backups/` não são afetados, porque não estão no git.
+> ⚠️ O `git reset --hard` descarta alterações locais a ficheiros do git. O `.env`, o `backups/` e os dados do servidor não são afetados, porque não estão no git.
 
 ### `Failed to load prospect file correctly`: o servidor fica no lobby
 
+Se no log aparecer também `LogJson: Warning: JsonObjectStringToUStruct - Unable to parse json`, o servidor leu o ficheiro cortado. Isto acontece quando os dados estão numa pasta do Windows (`ICARUS_DATA=./data` com o projeto em `C:\…`). Usa o volume por omissão (deixa `ICARUS_DATA` vazio); ver [Onde ficam os dados](#onde-ficam-os-dados).
+
+Caso contrário:
+
 O mundo indicado em `LOAD_PROSPECT` não foi encontrado ou não abriu. O log do `icarus` mostra uma linha `AVISO:` com os prospects que existem. Confirma:
 
-1. O ficheiro está em `data/Saved/PlayerData/DedicatedServer/Prospects/` (se o puseste em `./import`, o contentor tem de ser recriado: `docker compose up -d --force-recreate icarus`).
+1. O `.json` está em `./import` e o contentor foi recriado depois de o pores lá: `docker compose up -d --force-recreate icarus`.
 2. `LOAD_PROSPECT` é o nome do ficheiro **sem** `.json`, com as maiúsculas e minúsculas exatas.
 3. Se o nome está certo e continua a falhar, o `.json` pode estar incompleto (por exemplo, copiado com o jogo aberto): pede ao teu amigo uma cópia nova, com o jogo fechado.
 
