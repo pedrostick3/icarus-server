@@ -25,7 +25,14 @@ def env_float(name, default):
 
 
 def env_int(name, default):
-    return int(env_float(name, default))
+    value = env_str(name)
+    if not value:
+        return default
+    try:
+        # Parse as int directly: Discord IDs have more digits than a float can hold exactly
+        return int(value)
+    except ValueError:
+        return int(float(value))
 
 
 def env_ids(name):
